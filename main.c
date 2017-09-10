@@ -1,6 +1,5 @@
 /*
  * File:   main.c
- * Author: omurakosuke
  *
  * Created on August 28, 2017, 11:31 PM
  */
