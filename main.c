@@ -1,5 +1,9 @@
 /*
  * Created on August 28, 2017
+ * August 30: ADC/PWM test
+ * September 10: Open-loop
+ * 
+ * MPLAB X(XC8)
  * 
  * PWM0: U Nch (Low side)
  * PWM1: U Pch (High side)
@@ -81,53 +85,55 @@
 //functions
 void BLDCState(int);
 void setDuty(unsigned int);
-void openLoop(unsigned int, unsigned int, unsigned int, unsigned int);
 
-//const / var
+//var
+unsigned char ADCPortNum = 0;
 unsigned char ADCON[3] = {0};
-const unsigned char ADPortCHS[3] = {0b00, 0b01, 0b10};
 unsigned char sensorLessFeedBack;
-char ADCPortNum = 0;
+unsigned char motorPosition;
+unsigned char direction;
 
-const unsigned char FeedBack1[6] = {
-    0b00000011,//
-    0b00000001,
-    0b00000101,//
-    0b00000100,
-    0b00000110,//
-    0b00000010
-};
-const unsigned char FeedBack2[6] = {
-    0b00000010,
-    0b00000011,
-    0b00000001,
-    0b00000101,
-    0b00000100,
-    0b00000110
+//const
+const unsigned char ADPortCHS[3] = {0b00, 0b01, 0b11};
+const unsigned char feedBack[2][6] = {
+    {
+        0b00000011,
+        0b00000001,
+        0b00000101,
+        0b00000100, //undetected
+        0b00000110,
+        0b00000010 //undetected
+    },
+    {
+        0b00000010,
+        0b00000011,
+        0b00000001,
+        0b00000101,
+        0b00000100,
+        0b00000110
+    }
 };
 
 void interrupt isr() {
     if (PIR1bits.ADIF) {
         ADCON[ADCPortNum] = ADRESH;
 
-        if (ADCPortNum >= 2) {
-            ADCPortNum = 0;
-            
-            //convert
+        ADCPortNum = (ADCPortNum >= 2) ? 0 : ADCPortNum + 1;
+
+        if (ADCPortNum == 2) {
+            //BEMF
             sensorLessFeedBack = 0b00000000;
-            sensorLessFeedBack += (ADCON[0] > (ADCON[1] + ADCON[2]) >> 1) ? 0b00000001 : 0;
-            sensorLessFeedBack += (ADCON[1] > (ADCON[0] + ADCON[2]) >> 1) ? 0b00000010 : 0;
-            sensorLessFeedBack += (ADCON[2] > (ADCON[0] + ADCON[1]) >> 1) ? 0b00000100 : 0;
-            
+            sensorLessFeedBack += (ADCON[0] > 0x7f) ? 0b00000001 : 0;
+            sensorLessFeedBack += (ADCON[1] > 0x7f) ? 0b00000010 : 0;
+            sensorLessFeedBack += (ADCON[2] > 0x7f) ? 0b00000100 : 0;
+
             //debug
-            if (FeedBack1[5] == sensorLessFeedBack) {
+            //if (feedBack[0][(motorPosition + 1) == 6 ? 0 : (motorPosition + 1)] == sensorLessFeedBack) {
+            if (feedBack[0][3] == sensorLessFeedBack) {
                 PORTBbits.RB3 = 1;
             } else {
                 PORTBbits.RB3 = 0;
             }
-            
-        } else {
-            ADCPortNum += 1;
         }
 
         ADCON0bits.CHS = ADPortCHS[ADCPortNum];
@@ -152,10 +158,13 @@ void main(void) {
     INTCON2 = 0b00000000;
     INTCON3 = 0b00000000;
 
+    //configure timer 0
+    T0CON = 0b01000000;
+
     //configure a/d module
     ADCON0 = 0b00000000;
     ADCON1 = 0b00010000; // Vref source -> Vref+ pin
-    ADCON2 = 0b00010010;
+    ADCON2 = 0b00010110;
 
     //configure PWM
     PTCON0 = 0b00000010; //Postscale 1:1, Fosc/4 Prescale 1:1
@@ -166,7 +175,7 @@ void main(void) {
     OVDCONS = 0b00000000;
     //Period control for all PWM output
     PTPERH = 0x00;
-    PTPERL = 0x3f;
+    PTPERL = 0x3f; //8bit PWM
     DTCON = 0b00000110;
     //FLTCONFIG = 0b00000010;
 
@@ -180,13 +189,15 @@ void main(void) {
     PDC2L = 0; //Duty Cycle control for PWM4/5
     setDuty(0);
 
-    unsigned int i = 0;
-
     //Blink for start confirmation
     __delay_ms(500);
     PORTBbits.RB3 = 1;
     __delay_ms(500);
     PORTBbits.RB3 = 0;
+
+    //start timer 0
+    T0CONbits.TMR0ON = 0;
+    INTCONbits.TMR0IE = 0;
 
     //start ADC
     ADCON0bits.CHS = 0;
@@ -195,9 +206,55 @@ void main(void) {
     ADCON0bits.GO_nDONE = 1;
     PIE1bits.ADIE = 1;
 
-    openLoop(0x1c, 600, 150, 20);
+    //var for open-loop
+    unsigned int OLCurrent, OLInitialSpeed, openToLoopSpeed, OLaccelerate;
+    unsigned int OLSpeedCount, OLAccelerateCount;
+
+    //var for closed-loop
+    unsigned char CLEnable;
+    unsigned int current, CLaccelerate, CLAccelerateCount;
+
+    //setting
+    direction = 0; //rotate direction
+    OLCurrent = 0x1e; //Open-loop current
+    OLInitialSpeed = 800; //Open-loop initial speed
+    openToLoopSpeed = 150; //Open to close speed (Open-loop max speed)
+    OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+    //setting end
+
+    //initialize
+    current = 0x00;
+    motorPosition = 0; //Motor initial position
+    CLEnable = 0; //Closed-loop enable flag
+    OLAccelerateCount = OLInitialSpeed;
+    //initialize end
+
     while (1) {
-        __delay_ms(2000);
+        setDuty(current);
+
+        //start motor with open-loop
+        //transition to closed-loop
+        if (!CLEnable) {
+            current = ((current + 1) < OLCurrent) ? current + 1 : OLCurrent;
+            OLAccelerateCount = ((OLAccelerateCount - OLaccelerate) > openToLoopSpeed) ? (OLAccelerateCount - OLaccelerate) : openToLoopSpeed;
+
+            for (OLSpeedCount = 0; OLSpeedCount < OLAccelerateCount; OLSpeedCount++) {
+                __delay_us(10);
+            }
+        }
+
+        //change motor position
+        BLDCState(motorPosition);
+
+        if (direction == 0) {
+            motorPosition = (motorPosition == 5) ? 0 : motorPosition + 1;
+        } else if (direction == 1) {
+            motorPosition = (motorPosition == 0) ? 5 : motorPosition - 1;
+        } else {
+            //stop
+            motorPosition = 0;
+            setDuty(0);
+        }
     }
 
     return;
@@ -232,7 +289,7 @@ void BLDCState(int state) {
     return;
 }
 
-//PWM duty ratio = Current supply to the motor = speed of motor
+//PWM duty ratio = Current supply to motor = speed of motor(closed-loop))
 
 void setDuty(unsigned int duty) {
     if (duty > 0xff) {
@@ -241,33 +298,4 @@ void setDuty(unsigned int duty) {
     PDC0L = duty;
     PDC1L = duty;
     PDC2L = duty;
-}
-
-//start motor with open-loop and transition to closed-loop
-
-void openLoop(unsigned int current, unsigned int initialSpeed, unsigned int openToLoopSpeed, unsigned int accelerate) {
-    setDuty(current);
-    unsigned char motorPosition;
-    unsigned int speedCount, accelerateCount;
-
-    //start and accelerate
-    for (accelerateCount = initialSpeed; accelerateCount > openToLoopSpeed; accelerateCount -= accelerate) {
-        for (motorPosition = 0; motorPosition < 6; motorPosition++) {
-            BLDCState(motorPosition);
-            for (speedCount = 0; speedCount < accelerateCount; speedCount++) {
-                __delay_us(10);
-            }
-        }
-    }
-
-    //for test drive
-    while (1) {
-        for (motorPosition = 0; motorPosition < 6; motorPosition++) {
-            BLDCState(motorPosition);
-            for (speedCount = 0; speedCount < openToLoopSpeed; speedCount++) {
-                __delay_us(10);
-            }
-        }
-    }
-    return;
 }
