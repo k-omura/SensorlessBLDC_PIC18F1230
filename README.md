@@ -13,8 +13,6 @@ Motor : A2212 13T 1000KV  
 
 
 -------------------------------------------
-
-
 Closed-loop test: https://youtu.be/z_nNao-uBho  
 -------------------------------------------
 Sorry for the terrible English  
