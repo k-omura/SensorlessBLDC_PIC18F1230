@@ -3,6 +3,7 @@
  * August 30: ADC/PWM test
  * September 10: Open-loop
  * September 12: Closed-loop
+ * September 13: Seamless transition Open to Closed, lock detection
  * 
  * MPLAB X(XC8)
  * 
@@ -234,11 +235,11 @@ void main(void) {
 
     //settings
     direction = 0; //rotate direction 0/1/others
-    OLDuty = 0x1e; //Open-loop current
+    OLDuty = 0x1e; //Open-loop duty
     OLInitialSpeed = 200; //Open-loop initial speed
     openToLoopSpeed = 40; //Open to close speed (Open-loop max speed)
     OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
-    CLaccelerate = 500; //Closed-loop acceleration
+    CLaccelerate = 200; //Closed-loop acceleration
     //settings end
 
     //initialize
@@ -278,7 +279,7 @@ void main(void) {
             }
         } else {
             chageDutySmoothly(duty, CLaccelerate);
-            duty = 0x40; //test value
+            duty = 0xff; //test CL-drive value
         }
     }
 
@@ -311,6 +312,7 @@ void BLDCPosition(int state) {
             OVDCOND = 0b00000000;
             break;
     }
+    
     return;
 }
 
@@ -371,4 +373,6 @@ void nextState(unsigned char directionSet) {
         chageDutySmoothly(0, 10);
     }
     BLDCPosition(motorPosition);
+    
+    return;
 }
