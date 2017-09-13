@@ -18,7 +18,15 @@ MOSFET: SLA5064 http://www.semicon.sanken-ele.co.jp/sk_content/sla5064_ds_en.pdf
 Motor : A2212 13T 1000KV  
 
 -------------------------------------------
+# Video  
 Closed-loop test: https://youtu.be/z_nNao-uBho  
+
+-------------------------------------------
+# How to use  
+1. install MPLAB X / XC8  
+2. create PIC18F1230 project  
+3. create main.c in "Source Files"  
+4. copy one of the main(???).c  
 
 -------------------------------------------
 Sorry for the terrible English  
