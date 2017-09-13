@@ -11,6 +11,16 @@ Sensorless brushless motor controller using PIC18F1230 (XC8)  
 * Closed-loop lock detection(back to open-loop).  
 
 -------------------------------------------
+# Variable(Implemented)  
+* Direction of rotation  
+* Open-loop duty  
+* Open-loop initial speed  
+* Open-loop acceleration  
+* Open-loop to closed-loop speed  
+* Closed-loop speed  
+* Closed-loop acceleration  
+
+-------------------------------------------
 # My parts list  
 PIC: PIC18F1230 http://ww1.microchip.com/downloads/en/DeviceDoc/39758D.pdf  
 NPN Tr: 2SC1815  
