@@ -30,6 +30,7 @@ Motor : A2212 13T 1000KV  
 -------------------------------------------
 # Video  
 Closed-loop test: https://youtu.be/z_nNao-uBho  
+Lock detection test: https://youtu.be/O4YZ754I2WM  
 
 -------------------------------------------
 # How to use  
