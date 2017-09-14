@@ -29,7 +29,7 @@ Motor : A2212 13T 1000KV  
 
 -------------------------------------------
 # Video  
-Closed-loop test: https://youtu.be/z_nNao-uBho  
+Closed-loop test: https://youtu.be/z_nNao-uBho  
 Lock detection test: https://youtu.be/O4YZ754I2WM  
 
 -------------------------------------------
@@ -37,7 +37,7 @@ Lock detection test: https://youtu.be/O4YZ754I2WM
 1. install MPLAB X / XC8  
 2. create PIC18F1230 project  
 3. create main.c in "Source Files"  
-4. copy one of the main(???).c  
+4. copy one of the main(---).c  
 
 -------------------------------------------
 Sorry for the terrible English  
