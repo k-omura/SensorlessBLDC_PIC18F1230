@@ -239,7 +239,7 @@ void main(void) {
     motorPosition = 0; //Motor initial position
     CLEnable = 0; //Closed-loop enable flag
     OLAccelerateCount = OLInitialSpeed;
-    chageDutySmoothly(OLDuty, 1); //initialize static var in function "prevDuty".
+    chageDutySmoothly(OLDuty, 0); //initialize static var in function "prevDuty".
     //initialize end
 
     //main motor control part
@@ -314,31 +314,29 @@ void setDuty(unsigned int duty) {
 
 //change PWM duty ratio smoothly
 
-void chageDutySmoothly(unsigned int newDuty, unsigned int acceleration) {
+void chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     static unsigned int prevDuty = 0;
-    int i, accelerateCount;
-
-    if (newDuty > 0xff) {
-        newDuty = 0xff;
+    int accelerateCount;
+    
+    if (targetDuty > 0xff) {
+        targetDuty = 0xff;
+    }
+    
+    if (targetDuty == prevDuty) {
+        return;
     }
 
-    if (newDuty > prevDuty) {
-        for (i = prevDuty; i <= newDuty; i++) {
-            setDuty(i);
-            for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
-                __delay_us(1);
-            }
-        }
-    } else if (newDuty < prevDuty) {
-        for (i = prevDuty; i >= newDuty; i--) {
-            setDuty(i);
-            for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
-                __delay_us(1);
-            }
-        }
+    if(acceleration == 0){
+        prevDuty = targetDuty;
+        return;
     }
+    
+    prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
+    setDuty(prevDuty);
 
-    prevDuty = newDuty;
+    for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
+        __delay_us(1);
+    }
 
     return;
 }
