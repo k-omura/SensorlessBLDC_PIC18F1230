@@ -239,7 +239,7 @@ void main(void) {
     OLInitialSpeed = 200; //Open-loop initial speed
     openToLoopSpeed = 40; //Open to close speed (Open-loop max speed)
     OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
-    CLaccelerate = 200; //Closed-loop acceleration
+    CLaccelerate = 150; //Closed-loop acceleration
     //settings end
 
     //initialize
@@ -249,7 +249,6 @@ void main(void) {
     //main motor control part
     while (1) {
         //start motor with open-loop
-        //transition to closed-loop
         if (!CLEnable) {
             if (lockDetected) {
                 //initialize. first start or lock detected
@@ -258,18 +257,20 @@ void main(void) {
                 motorPosition = 0; //Motor initial position
                 CLEnable = 0; //Closed-loop enable flag
                 OLAccelerateCount = OLInitialSpeed;
-                chageDutySmoothly(OLDuty, 1); //initialize static var in function "prevDuty".
+                chageDutySmoothly(OLDuty, 0); //initialize static var in function "prevDuty".
                 lockDetected = 0;
                 //initialize end
             }
 
             setDuty(duty);
-            duty = ((duty + 1) < OLDuty) ? duty + 1 : OLDuty;
+
+            duty = (duty < OLDuty) ? duty + 1 : OLDuty;
             OLAccelerateCount = ((OLAccelerateCount - OLaccelerate) > openToLoopSpeed) ? (OLAccelerateCount - OLaccelerate) : openToLoopSpeed;
 
             //change motor position
             nextState(direction);
 
+            //transition to closed-loop
             if (OLAccelerateCount == openToLoopSpeed) {
                 reachO2CSpeed = 1;
             }
@@ -279,7 +280,7 @@ void main(void) {
             }
         } else {
             chageDutySmoothly(duty, CLaccelerate);
-            duty = 0xff; //test CL-drive value
+            duty = 0xfe; //test CL-drive value
         }
     }
 
@@ -312,7 +313,7 @@ void BLDCPosition(int state) {
             OVDCOND = 0b00000000;
             break;
     }
-    
+
     return;
 }
 
@@ -331,31 +332,29 @@ void setDuty(unsigned int duty) {
 
 //change PWM duty ratio smoothly
 
-void chageDutySmoothly(unsigned int newDuty, unsigned int acceleration) {
+void chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     static unsigned int prevDuty = 0;
-    int i, accelerateCount;
-
-    if (newDuty > 0xff) {
-        newDuty = 0xff;
+    int accelerateCount;
+    
+    if (targetDuty > 0xff) {
+        targetDuty = 0xff;
+    }
+    
+    if (targetDuty == prevDuty) {
+        return;
     }
 
-    if (newDuty > prevDuty) {
-        for (i = prevDuty; i <= newDuty; i++) {
-            setDuty(i);
-            for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
-                __delay_us(1);
-            }
-        }
-    } else if (newDuty < prevDuty) {
-        for (i = prevDuty; i >= newDuty; i--) {
-            setDuty(i);
-            for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
-                __delay_us(1);
-            }
-        }
+    if(acceleration == 0){
+        prevDuty = targetDuty;
+        return;
     }
+    
+    prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
+    setDuty(prevDuty);
 
-    prevDuty = newDuty;
+    for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
+        __delay_us(1);
+    }
 
     return;
 }
@@ -373,6 +372,6 @@ void nextState(unsigned char directionSet) {
         chageDutySmoothly(0, 10);
     }
     BLDCPosition(motorPosition);
-    
+
     return;
 }
