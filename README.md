@@ -40,4 +40,8 @@ Lock detection test: https://youtu.be/O4YZ754I2WM
 4. copy one of the main(---).c  
 
 -------------------------------------------
-Sorry for the terrible English  
+This is part of the quadcopter making project.  
+Sorry for the terrible English.  
+ 
+  
+
