@@ -155,7 +155,8 @@ void interrupt isr() {
 
         ADCON0bits.CHS = ADCPortCHS[ADCPortNum];
         PIR1bits.ADIF = 0;
-    } else if (INTCONbits.TMR0IF) {
+    }
+    if (INTCONbits.TMR0IF) {
         INTCONbits.TMR0IF = 0;
     }
 
@@ -220,7 +221,7 @@ void main(void) {
     INTCONbits.TMR0IE = 0;
 
     //start ADC
-    ADCON0bits.CHS = 0;
+    ADCON0bits.CHS = ADCPortCHS[0];
     ADCON0bits.ADON = 1;
     __delay_ms(50);
     ADCON0bits.GO_nDONE = 1;
@@ -280,7 +281,7 @@ void main(void) {
             }
         } else {
             chageDutySmoothly(duty, CLaccelerate);
-            duty = 0xfe; //test CL-drive value
+            duty = 0xf0; //test CL-drive value
         }
     }
 
@@ -335,20 +336,20 @@ void setDuty(unsigned int duty) {
 void chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     static unsigned int prevDuty = 0;
     int accelerateCount;
-    
+
     if (targetDuty > 0xff) {
         targetDuty = 0xff;
     }
-    
+
     if (targetDuty == prevDuty) {
         return;
     }
 
-    if(acceleration == 0){
+    if (acceleration == 0) {
         prevDuty = targetDuty;
         return;
     }
-    
+
     prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
     setDuty(prevDuty);
 
