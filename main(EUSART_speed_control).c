@@ -90,9 +90,19 @@
 #define _XTAL_FREQ 32000000
 #define motorADCThreshold 0x80 // (Vmotor / 2) Adjust the value by looking at the oscilloscope, if necessary.
 #define lockDetectionThreshold 1000
+
+//configurations
 #define eusartAddress 0b00 //EUSART Lower 2 bits, use as address.
+#define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
+#define configOLDuty 0x1e//Open-loop duty
+#define configOLInitialSpeed 200 //Open-loop initial speed
+#define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
+#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+#define configCLaccelerate 5 //Closed-loop acceleration
+//configurations end
 
 //functions
+int math_abs(int, int);
 void BLDCPosition(int);
 void setDuty(unsigned int);
 char chageDutySmoothly(unsigned int, unsigned int); //Output 1 when the target speed is reached
@@ -273,25 +283,25 @@ void main(void) {
     unsigned int OLSpeedCount, OLAccelerateCount;
 
     //var for closed-loop
-    unsigned int CLDuty, CLaccelerate;
+    unsigned int CLDuty, CLaccelerate, CLInitialSpeedReached;
 
     //var others
     int duty, eusartReceiveData;
 
     //Initial configuration
-    direction = 0; //rotate direction 0:CW /1:CCW /others:stop
-    OLDuty = 0x1e; //Open-loop duty
-    OLInitialSpeed = 200; //Open-loop initial speed
-    openToLoopSpeed = 40; //Open to close speed (Open-loop max speed)
-    OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
-    CLaccelerate = 40; //Closed-loop acceleration
-    CLDuty = 0;
-
-    eusartReceiveData = 0;
+    direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
+    OLDuty = configOLDuty; //Open-loop duty
+    OLInitialSpeed = configOLInitialSpeed; //Open-loop initial speed
+    openToLoopSpeed = configOpenToLoopSpeed; //Open to close speed (Open-loop max speed)
+    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+    CLaccelerate = configCLaccelerate; //Closed-loop acceleration
     //Initial configuration end
 
     //initialize
     lockDetected = 1; //motor is stopped in the initial state.
+    CLDuty = 0;
+    eusartReceiveData = 0;
+    CLInitialSpeedReached = 0;
     //initialize end
 
     //main motor control part
@@ -306,6 +316,7 @@ void main(void) {
                 OLAccelerateCount = OLInitialSpeed;
                 chageDutySmoothly(OLDuty, 0); //initialize static var in function "prevDuty".
                 lockDetected = 0;
+                CLInitialSpeedReached = 0;
                 reachO2CSpeed = 0;
                 //initialize end
             }
@@ -336,7 +347,7 @@ void main(void) {
         if ((eusartReceive.split.address == eusartAddress) && !eusartReceiveDataGet) {
             eusartReceiveDataGet = 1;
             if (eusartReceive.split.data) {
-                CLDuty = (eusartReceive.split.data << 2) + 0b11;
+                CLDuty = eusartReceive.split.data + 0b11000000;
             } else {
                 //EUSART input 0
                 reachO2CSpeed = 0;
@@ -344,12 +355,17 @@ void main(void) {
                 setDuty(0x00);
                 CLEnable = 0;
                 CLDuty = 0;
+                CLInitialSpeedReached = 0;
                 lockDetected = 1;
             }
         }
     }
 
     return;
+}
+
+int math_abs(int val1, int val2) {
+    return (val1 >= val2) ? (val1 - val2) : (val2 - val1);
 }
 
 //PWM on/off setting
@@ -397,7 +413,7 @@ void setDuty(unsigned int duty) {
 
 //change PWM duty ratio smoothly. Output 1 when the target speed is reached.
 
-char chageDutySmoothly(unsigned int targetDuty, const unsigned int acceleration) {
+char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     static unsigned int prevDuty = 0;
     int accelerateCount;
 
@@ -412,6 +428,11 @@ char chageDutySmoothly(unsigned int targetDuty, const unsigned int acceleration)
     if (acceleration == 0) {
         prevDuty = targetDuty;
         return 1;
+    }
+
+    //Preventing step-out by rapid acceleration.
+    if (math_abs(targetDuty, prevDuty) > 30) {
+        acceleration = 150;
     }
 
     prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
