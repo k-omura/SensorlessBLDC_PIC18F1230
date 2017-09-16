@@ -8,7 +8,8 @@ Sensorless brushless motor controller using PIC18F1230 (XC8)  
 # Feature(Implemented)  
 * Open-loop drive.  
 * Closed-loop drive(seamless transfer from open-loop).  
-* Closed-loop lock detection(back to open-loop).  
+* Closed-loop lock detection(back to open-loop).  
+* Speed control by EUSART input.  
 
 -------------------------------------------
 # Variable(Implemented)  
