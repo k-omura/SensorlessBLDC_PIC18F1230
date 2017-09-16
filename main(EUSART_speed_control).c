@@ -91,7 +91,7 @@
 #define motorADCThreshold 0x80 // (Vmotor / 2) Adjust the value by looking at the oscilloscope, if necessary.
 #define lockDetectionThreshold 1000
 
-//configurations
+//configurations (Set for A2212 13T 1000KV)
 #define eusartAddress 0b00 //EUSART Lower 2 bits, use as address.
 #define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
 #define configOLDuty 0x1e//Open-loop duty
@@ -105,7 +105,7 @@
 int math_abs(int);
 void BLDCPosition(int);
 void setDuty(unsigned int);
-char chageDutySmoothly(unsigned int, unsigned int); //Output 1 when the target speed is reached
+char chageDutySmoothly(unsigned int, unsigned int);
 void nextState(unsigned char);
 
 //var
@@ -456,8 +456,11 @@ void nextState(const unsigned char directionSet) {
         motorPosition = (motorPosition == 0) ? 5 : motorPosition - 1;
     } else {
         //stop
-        chageDutySmoothly(0, 0);
-        motorPosition = 0;
+        reachO2CSpeed = 0;
+        BLDCPosition(100);
+        setDuty(0x00);
+        CLEnable = 0;
+        lockDetected = 1;
     }
     BLDCPosition(motorPosition);
 
