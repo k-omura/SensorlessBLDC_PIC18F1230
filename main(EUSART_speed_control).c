@@ -102,7 +102,7 @@
 //configurations end
 
 //functions
-int math_abs(int, int);
+int math_abs(int);
 void BLDCPosition(int);
 void setDuty(unsigned int);
 char chageDutySmoothly(unsigned int, unsigned int); //Output 1 when the target speed is reached
@@ -364,8 +364,10 @@ void main(void) {
     return;
 }
 
-int math_abs(int val1, int val2) {
-    return (val1 >= val2) ? (val1 - val2) : (val2 - val1);
+//math abs
+
+int math_abs(int value) {
+    return (value >= 0) ? value : -value;
 }
 
 //PWM on/off setting
@@ -431,7 +433,7 @@ char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     }
 
     //Preventing step-out by rapid acceleration.
-    if (math_abs(targetDuty, prevDuty) > 30) {
+    if (math_abs(targetDuty - prevDuty) > 30) {
         acceleration = 150;
     }
 
