@@ -4,7 +4,7 @@
  * September 10: Open-loop
  * September 12: Closed-loop
  * September 13: Seamless transition Open to Closed, lock detection
- * September 16: EUSART speed control
+ * September 16: EUSART speed control(Absolute)
  * 
  * MPLAB X(XC8)
  * 
@@ -22,7 +22,7 @@
  * 
  * Speed input EUSART(for quadcopter control)
  * Lower 2 bits: address
- * Upper 6 bits: speed data
+ * Upper 6 bits: speed data(Absolute)
  */
 
 // PIC18F1230 Configuration Bit Settings
@@ -347,7 +347,7 @@ void main(void) {
         if ((eusartReceive.split.address == eusartAddress) && !eusartReceiveDataGet) {
             eusartReceiveDataGet = 1;
             if (eusartReceive.split.data) {
-                CLDuty = eusartReceive.split.data + 0b11000000;
+                CLDuty = eusartReceive.split.data + 0b11000000;//Absolute speed control
             } else {
                 //EUSART input 0
                 reachO2CSpeed = 0;
