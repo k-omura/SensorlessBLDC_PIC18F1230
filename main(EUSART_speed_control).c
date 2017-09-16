@@ -20,7 +20,7 @@
  * ADC2: Supply voltage for motor drive (Vref source -> Vref+ pin)
  * ADC3: W
  * 
- * Speed input EUSART
+ * Speed input EUSART(for quadcopter control)
  * Lower 2 bits: address
  * Upper 6 bits: speed data
  */
