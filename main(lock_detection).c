@@ -89,7 +89,7 @@
 //functions
 void BLDCPosition(int);
 void setDuty(unsigned int);
-void chageDutySmoothly(unsigned int, unsigned int);
+char chageDutySmoothly(unsigned int, unsigned int); //Output 1 when the target speed is reached
 void nextState(unsigned char);
 
 //var
@@ -164,16 +164,16 @@ void interrupt isr() {
 }
 
 void main(void) {
-    OSCCON = 0b01110000;
-    OSCTUNE = 0b01000000;
+    OSCCON = 0b01110000; //INTOSC 8MHz
+    OSCTUNE = 0b01000000; //PLL on
 
-    TRISA = 0b01010011;
+    TRISA = 0b01011011; //AN0-3, RX input
     TRISB = 0b00000000;
     PORTA = 0b00000000;
     PORTB = 0b00000000;
 
     //interrupt
-    INTCON = 0b11000000;
+    INTCON = 0b11000000; //
     INTCON2 = 0b00000000;
     INTCON3 = 0b00000000;
 
@@ -182,8 +182,8 @@ void main(void) {
 
     //configure ADC
     ADCON0 = 0b10000000; //Special Event Trigger Enable
-    ADCON1 = 0b00010000; // Vref source -> Vref+ pin
-    ADCON2 = 0b00001000;
+    ADCON1 = 0b00010000; //Vref source -> Vref+ pin
+    ADCON2 = 0b00001000; //left justified
 
     //configure PWM
     PTCON0 = 0b00000010; //Postscale 1:1, Fosc/4 Prescale 1:1
@@ -208,8 +208,13 @@ void main(void) {
 
     PDC2H = 0; //Duty Cycle control for PWM4/5
     PDC2L = 0; //Duty Cycle control for PWM4/5
-    chageDutySmoothly(0, 10);
+    chageDutySmoothly(0, 0);
 
+    //configure EUSART receive
+    TXSTA = 0b00000000;
+    RCSTA = 0b10010000;
+    BAUDCON = 0b10011011;
+    
     //Blink for start confirmation
     __delay_ms(500);
     PORTBbits.RB3 = 1;
@@ -234,17 +239,17 @@ void main(void) {
     //var for closed-loop
     unsigned int duty, CLaccelerate;
 
-    //settings
-    direction = 0; //rotate direction 0/1/others
+    //Initial configuration
+    direction = 0; //rotate direction 0:CW /1:CCW /others:stop
     OLDuty = 0x1e; //Open-loop duty
     OLInitialSpeed = 200; //Open-loop initial speed
     openToLoopSpeed = 40; //Open to close speed (Open-loop max speed)
     OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
     CLaccelerate = 150; //Closed-loop acceleration
-    //settings end
+    //Initial configuration end
 
     //initialize
-    lockDetected = 1;
+    lockDetected = 1; //motor is stopped in the initial state.
     //initialize end
 
     //main motor control part
@@ -253,7 +258,6 @@ void main(void) {
         if (!CLEnable) {
             if (lockDetected) {
                 //initialize. first start or lock detected
-                //__delay_ms(1000);
                 duty = 0x00;
                 motorPosition = 0; //Motor initial position
                 CLEnable = 0; //Closed-loop enable flag
@@ -331,9 +335,9 @@ void setDuty(unsigned int duty) {
     return;
 }
 
-//change PWM duty ratio smoothly
+//change PWM duty ratio smoothly. Output 1 when the target speed is reached.
 
-void chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
+char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     static unsigned int prevDuty = 0;
     int accelerateCount;
 
@@ -342,12 +346,12 @@ void chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     }
 
     if (targetDuty == prevDuty) {
-        return;
+        return 1;
     }
 
     if (acceleration == 0) {
         prevDuty = targetDuty;
-        return;
+        return 1;
     }
 
     prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
@@ -357,7 +361,7 @@ void chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
         __delay_us(1);
     }
 
-    return;
+    return 0;
 }
 
 //rotate
@@ -369,8 +373,8 @@ void nextState(unsigned char directionSet) {
         motorPosition = (motorPosition == 0) ? 5 : motorPosition - 1;
     } else {
         //stop
+        chageDutySmoothly(0, 0);
         motorPosition = 0;
-        chageDutySmoothly(0, 10);
     }
     BLDCPosition(motorPosition);
 
