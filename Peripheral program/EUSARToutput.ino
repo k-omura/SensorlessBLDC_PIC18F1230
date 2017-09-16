@@ -1,6 +1,6 @@
 /*
  * Arduino program
- * test for main(EUSART_speed_control).c
+ * test for main(EUSART_speed_control_absolute).c
  */
 
 int i;
