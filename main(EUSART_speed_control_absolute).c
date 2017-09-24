@@ -21,6 +21,7 @@
  * ADC3: W
  * 
  * Speed input EUSART(for quadcopter control)
+ * Use RX pin only.
  * Lower 2 bits: address
  * Upper 6 bits: speed data(Absolute)
  */
@@ -402,13 +403,13 @@ void BLDCPosition(const int state) {
 
 //PWM duty ratio = Current supply to motor = speed of motor(closed-loop))
 
-void setDuty(unsigned int duty) {
-    if (duty > 0xff) {
-        duty = 0xff;
+void setDuty(unsigned int setDuty) {
+    if (setDuty > 0xff) {
+        setDuty = 0xff;
     }
-    PDC0L = duty;
-    PDC1L = duty;
-    PDC2L = duty;
+    PDC0L = setDuty;
+    PDC1L = setDuty;
+    PDC2L = setDuty;
 
     return;
 }
