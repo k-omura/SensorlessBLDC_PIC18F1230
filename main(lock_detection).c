@@ -1,9 +1,10 @@
 /*
  * Created on August 28, 2017
- * August 30: ADC/PWM test
- * September 10: Open-loop
- * September 12: Closed-loop
- * September 13: Seamless transition Open to Closed, lock detection
+ * August 30, 2017: ADC/PWM test
+ * September 10, 2017: Open-loop
+ * September 12, 2017: Closed-loop
+ * September 13, 2017: Seamless transition Open to Closed, lock detection(CL)
+ * January 1, 2018: lock detection(OL)
  * 
  * MPLAB X(XC8)
  * 
@@ -18,6 +19,11 @@
  * ADC1: V
  * ADC2: Supply voltage for motor drive (Vref source -> Vref+ pin)
  * ADC3: W
+ * 
+ * Speed input EUSART(for quadcopter control)
+ * Use RX pin only.
+ * Lower 2 bits: address
+ * Upper 6 bits: speed data(Absolute)
  */
 
 // PIC18F1230 Configuration Bit Settings
@@ -84,12 +90,23 @@
 
 #define _XTAL_FREQ 32000000
 #define motorADCThreshold 0x80 // (Vmotor / 2) Adjust the value by looking at the oscilloscope, if necessary.
-#define lockDetectionThreshold 1000
+#define CLLockDetectionThreshold 1000
+#define OLLockDetectionThreshold 800
+
+//configurations (Set for A2212 13T 1000KV)
+#define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
+#define configOLDuty 0x1e//Open-loop duty
+#define configOLInitialSpeed 200 //Open-loop initial speed
+#define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
+#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+#define configCLaccelerate 5 //Closed-loop acceleration
+//configurations end
 
 //functions
+int math_abs(int);
 void BLDCPosition(int);
 void setDuty(unsigned int);
-char chageDutySmoothly(unsigned int, unsigned int); //Output 1 when the target speed is reached
+char chageDutySmoothly(unsigned int, unsigned int);
 void nextState(unsigned char);
 
 //var
@@ -97,7 +114,7 @@ unsigned char motorPosition;
 unsigned char direction; //rotation direction. 0, 1, others
 unsigned char CLEnable = 0;
 unsigned char reachO2CSpeed = 0;
-unsigned char lockDetected = 0;
+unsigned char LockDetected = 0;
 
 //const
 const unsigned char ADCPortCHS[3] = {0b00, 0b01, 0b11};
@@ -123,7 +140,8 @@ const unsigned char feedBackConstant[2][6] = {
 void interrupt isr() {
     static unsigned char ADCPortNum = 0; //counter for ADCPortCHS
     static unsigned char ADCValue[3] = {0};
-    static unsigned int lockDetectionCount = 0;
+    static unsigned int CLLockDetectionCount = 0;
+    static unsigned int OLLockDetectionCount = 0;
 
     unsigned char BEMFValue;
 
@@ -142,23 +160,38 @@ void interrupt isr() {
             if ((feedBackConstant[direction][motorPosition] == BEMFValue) && reachO2CSpeed) {
                 //change motor position
                 nextState(direction);
-                lockDetectionCount = 0;
+                CLLockDetectionCount = 0;
+                OLLockDetectionCount = 0;
                 CLEnable = 1;
-            } else if (CLEnable && (lockDetectionThreshold < lockDetectionCount++)) {
-                //lock detected
-                lockDetected = 1;
-                CLEnable = 0;
+            } else if (!CLEnable && reachO2CSpeed && (OLLockDetectionThreshold < OLLockDetectionCount++)) {
+                //lock detected(OL)
                 reachO2CSpeed = 0;
+                BLDCPosition(100);
                 setDuty(0x00);
+                CLEnable = 0;
+                CLLockDetectionCount = 0;
+                OLLockDetectionCount = 0;
+                LockDetected = 1;
+            } else if (CLEnable && (CLLockDetectionThreshold < CLLockDetectionCount++)) {
+                //lock detected(CL)
+                reachO2CSpeed = 0;
+                BLDCPosition(100);
+                setDuty(0x00);
+                CLEnable = 0;
+                CLLockDetectionCount = 0;
+                OLLockDetectionCount = 0;
+                LockDetected = 1;
             }
         }
 
         ADCON0bits.CHS = ADCPortCHS[ADCPortNum];
         PIR1bits.ADIF = 0;
     }
+    /*
     if (INTCONbits.TMR0IF) {
         INTCONbits.TMR0IF = 0;
     }
+    */
 
     return;
 }
@@ -210,11 +243,6 @@ void main(void) {
     PDC2L = 0; //Duty Cycle control for PWM4/5
     chageDutySmoothly(0, 0);
 
-    //configure EUSART receive
-    TXSTA = 0b00000000;
-    RCSTA = 0b10010000;
-    BAUDCON = 0b10011011;
-    
     //Blink for start confirmation
     __delay_ms(500);
     PORTBbits.RB3 = 1;
@@ -232,38 +260,47 @@ void main(void) {
     ADCON0bits.GO_nDONE = 1;
     PIE1bits.ADIE = 1;
 
+    //start EUSART interrupt
+    PIE1bits.RCIE = 1;
+
     //var for open-loop
     unsigned int OLDuty, OLInitialSpeed, openToLoopSpeed, OLaccelerate;
     unsigned int OLSpeedCount, OLAccelerateCount;
 
     //var for closed-loop
-    unsigned int duty, CLaccelerate;
+    unsigned int CLDuty, CLaccelerate, CLInitialSpeedReached;
+
+    //var others
+    int duty;
 
     //Initial configuration
-    direction = 0; //rotate direction 0:CW /1:CCW /others:stop
-    OLDuty = 0x1e; //Open-loop duty
-    OLInitialSpeed = 200; //Open-loop initial speed
-    openToLoopSpeed = 40; //Open to close speed (Open-loop max speed)
-    OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
-    CLaccelerate = 150; //Closed-loop acceleration
+    direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
+    OLDuty = configOLDuty; //Open-loop duty
+    OLInitialSpeed = configOLInitialSpeed; //Open-loop initial speed
+    openToLoopSpeed = configOpenToLoopSpeed; //Open to close speed (Open-loop max speed)
+    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+    CLaccelerate = configCLaccelerate; //Closed-loop acceleration
     //Initial configuration end
 
     //initialize
-    lockDetected = 1; //motor is stopped in the initial state.
+    LockDetected = 1; //motor is stopped in the initial state.
+    CLDuty = 0;
+    CLInitialSpeedReached = 0;
     //initialize end
 
     //main motor control part
     while (1) {
-        //start motor with open-loop
-        if (!CLEnable) {
-            if (lockDetected) {
-                //initialize. first start or lock detected
+        if (!CLEnable && CLDuty) { //start motor with open-loop
+            if (LockDetected) {
+                //initialize. first start or lock detected(CL)
                 duty = 0x00;
                 motorPosition = 0; //Motor initial position
                 CLEnable = 0; //Closed-loop enable flag
                 OLAccelerateCount = OLInitialSpeed;
                 chageDutySmoothly(OLDuty, 0); //initialize static var in function "prevDuty".
-                lockDetected = 0;
+                LockDetected = 0;
+                CLInitialSpeedReached = 0;
+                reachO2CSpeed = 0;
                 //initialize end
             }
 
@@ -283,18 +320,25 @@ void main(void) {
             for (OLSpeedCount = 0; OLSpeedCount < OLAccelerateCount; OLSpeedCount++) {
                 __delay_us(10);
             }
-        } else {
+        } else { //Closed-loop
             chageDutySmoothly(duty, CLaccelerate);
-            duty = 0xf0; //test CL-drive value
+            CLDuty = 0xff; //test constant speed CL-drive value
+            duty = CLDuty;
         }
     }
 
     return;
 }
 
+//math abs
+
+int math_abs(int value) {
+    return (value >= 0) ? value : -value;
+}
+
 //PWM on/off setting
 
-void BLDCPosition(int state) {
+void BLDCPosition(const int state) {
     switch (state) {
         case 0:
             OVDCOND = 0b00001001;
@@ -324,13 +368,13 @@ void BLDCPosition(int state) {
 
 //PWM duty ratio = Current supply to motor = speed of motor(closed-loop))
 
-void setDuty(unsigned int duty) {
-    if (duty > 0xff) {
-        duty = 0xff;
+void setDuty(unsigned int setDuty) {
+    if (setDuty > 0xff) {
+        setDuty = 0xff;
     }
-    PDC0L = duty;
-    PDC1L = duty;
-    PDC2L = duty;
+    PDC0L = setDuty;
+    PDC1L = setDuty;
+    PDC2L = setDuty;
 
     return;
 }
@@ -354,6 +398,11 @@ char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
         return 1;
     }
 
+    //Preventing step-out by rapid acceleration.
+    if (math_abs(targetDuty - prevDuty) > 64) {
+        acceleration = 100;
+    }
+
     prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
     setDuty(prevDuty);
 
@@ -366,15 +415,18 @@ char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
 
 //rotate
 
-void nextState(unsigned char directionSet) {
+void nextState(const unsigned char directionSet) {
     if (directionSet == 0) {
         motorPosition = (motorPosition == 5) ? 0 : motorPosition + 1;
     } else if (directionSet == 1) {
         motorPosition = (motorPosition == 0) ? 5 : motorPosition - 1;
     } else {
         //stop
-        chageDutySmoothly(0, 0);
-        motorPosition = 0;
+        reachO2CSpeed = 0;
+        BLDCPosition(100);
+        setDuty(0x00);
+        CLEnable = 0;
+        LockDetected = 1;
     }
     BLDCPosition(motorPosition);
 
