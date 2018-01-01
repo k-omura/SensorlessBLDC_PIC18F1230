@@ -85,6 +85,16 @@
 #define motorADCThreshold 0x80 // (Vmotor / 2) Adjust the value by looking at the oscilloscope, if necessary.
 #define lockDetectionThreshold 1000
 
+//configurations (Set for A2212 13T 1000KV)
+#define eusartAddress 0b00 //EUSART Lower 2 bits, use as address.
+#define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
+#define configOLDuty 0x1e//Open-loop duty
+#define configOLInitialSpeed 200 //Open-loop initial speed
+#define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
+#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+#define configCLaccelerate 5 //Closed-loop acceleration
+//configurations end
+
 //functions
 void BLDCPosition(int);
 void setDuty(unsigned int);
@@ -225,14 +235,14 @@ void main(void) {
     //var for closed-loop
     unsigned int duty, CLaccelerate;
 
-    //settings
-    direction = 0; //rotate direction 0/1/others
-    OLDuty = 0x1e; //Open-loop current
-    OLInitialSpeed = 200; //Open-loop initial speed
-    openToLoopSpeed = 40; //Open to close speed (Open-loop max speed)
-    OLaccelerate = 2; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
-    CLaccelerate = 2000; //Closed-loop acceleration
-    //settings end
+    //Initial configuration
+    direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
+    OLDuty = configOLDuty; //Open-loop duty
+    OLInitialSpeed = configOLInitialSpeed; //Open-loop initial speed
+    openToLoopSpeed = configOpenToLoopSpeed; //Open to close speed (Open-loop max speed)
+    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+    CLaccelerate = configCLaccelerate; //Closed-loop acceleration
+    //Initial configuration end
 
     //initialize
     duty = 0x00;
