@@ -243,12 +243,6 @@ void main(void) {
     PDC2L = 0; //Duty Cycle control for PWM4/5
     chageDutySmoothly(0, 0);
 
-    //Blink for start confirmation
-    __delay_ms(500);
-    PORTBbits.RB3 = 1;
-    __delay_ms(500);
-    PORTBbits.RB3 = 0;
-
     //start timer 0
     T0CONbits.TMR0ON = 0;
     INTCONbits.TMR0IE = 0;
