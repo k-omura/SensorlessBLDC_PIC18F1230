@@ -86,7 +86,6 @@
 #define lockDetectionThreshold 1000
 
 //configurations (Set for A2212 13T 1000KV)
-#define eusartAddress 0b00 //EUSART Lower 2 bits, use as address.
 #define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
 #define configOLDuty 0x1e//Open-loop duty
 #define configOLInitialSpeed 200 //Open-loop initial speed
