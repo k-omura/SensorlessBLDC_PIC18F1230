@@ -20,10 +20,8 @@
  * ADC2: Supply voltage for motor drive (Vref source -> Vref+ pin)
  * ADC3: W
  * 
- * Speed input EUSART(for quadcopter control)
+ * Speed input EUSART
  * Use RX pin only.
- * Lower 2 bits: address
- * Upper 6 bits: speed data(Absolute)
  */
 
 // PIC18F1230 Configuration Bit Settings
@@ -94,9 +92,8 @@
 #define OLLockDetectionThreshold 800
 
 //configurations (Set for A2212 13T 1000KV)
-#define eusartAddress 0b00 //EUSART Lower 2 bits, use as address.
-#define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
-#define configOLDuty 0x1e//Open-loop duty
+#define configDirection 0 //rotate direction 0:CW /1:CCW /others:stop
+#define configOLDuty 0b00011011 //Open-loop duty
 #define configOLInitialSpeed 200 //Open-loop initial speed
 #define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
 #define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
@@ -118,14 +115,7 @@ unsigned char reachO2CSpeed = 0;
 unsigned char LockDetected = 0;
 
 unsigned char eusartReceiveDataGet = 0; //flag read value
-union eusartReceive {
-    unsigned char raw;
-
-    struct split {
-        unsigned int address : 2;
-        unsigned int data : 6;
-    } split;
-} eusartReceive;
+unsigned char eusartReceiveData = 0;
 
 //const
 const unsigned char ADCPortCHS[3] = {0b00, 0b01, 0b11};
@@ -159,7 +149,7 @@ void interrupt isr() {
     if (PIR1bits.ADIF) {
         ADCValue[ADCPortNum] = ADRESH;
 
-        ADCPortNum = (ADCPortNum >= 2) ? 0 : ADCPortNum + 1;
+        ADCPortNum = (ADCPortNum >= 2) ? 0 : (ADCPortNum + 1);
 
         if (ADCPortNum == 0) { //AD Convert all of UVW
             //BEMF
@@ -201,10 +191,10 @@ void interrupt isr() {
     if (PIR1bits.RCIF) {
         if (RCSTAbits.OERR || RCSTAbits.FERR) {
             RCSTAbits.CREN = 0;
-            eusartReceive.raw = RCREG;
+            eusartReceiveData = RCREG;
             RCSTAbits.CREN = 1;
         } else {
-            eusartReceive.raw = RCREG;
+            eusartReceiveData = RCREG;
             eusartReceiveDataGet = 0;
         }
         PIR1bits.RCIF = 0;
@@ -294,7 +284,7 @@ void main(void) {
     unsigned int CLDuty, CLaccelerate, CLInitialSpeedReached;
 
     //var others
-    int duty, eusartReceiveData;
+    int duty;
 
     //Initial configuration
     direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
@@ -346,15 +336,15 @@ void main(void) {
             }
         } else { //Closed-loop
             chageDutySmoothly(duty, CLaccelerate);
-            CLDuty = 0xff; //test constant speed CL-drive value
+            //CLDuty = 0xff; //test constant speed CL-drive value
             duty = CLDuty;
         }
         
         //Processing EUSART speed input 
-        if ((eusartReceive.split.address == eusartAddress) && !eusartReceiveDataGet) {
+        if (!eusartReceiveDataGet) {
             eusartReceiveDataGet = 1;
-            if (eusartReceive.split.data) {
-                CLDuty = eusartReceive.split.data + 0b11000000;//Absolute speed control
+            if (eusartReceiveData) {
+                CLDuty = eusartReceiveData;//Absolute speed control
             } else {
                 //EUSART input 0
                 reachO2CSpeed = 0;
@@ -440,7 +430,7 @@ char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     }
 
     //Preventing step-out by rapid acceleration.
-    if (math_abs(targetDuty - prevDuty) > 64) {
+    if (math_abs(targetDuty - prevDuty) > 128) {
         acceleration = 100;
     }
 
