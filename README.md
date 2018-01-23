@@ -12,7 +12,7 @@ Sensorless brushless motor controller using PIC18F1230 (XC8)  
 * Speed control by EUSART input.  
 
 -------------------------------------------
-# Variable(Implemented)  
+# Variables(Implemented)  
 * Direction of rotation  
 * Open-loop duty  
 * Open-loop initial speed  
@@ -29,7 +29,7 @@ MOSFET: SLA5064 http://www.semicon.sanken-ele.co.jp/sk_content/sla5064_ds_en.pdf
 Motor : A2212 13T 950kV/1000kV/1300kV  
 
 -------------------------------------------
-# Video  
+# Videos  
 Closed-loop test: https://youtu.be/z_nNao-uBho  
 Lock detection test: https://youtu.be/O4YZ754I2WM  
 EUSART speed input with foot pedal: https://youtu.be/TU5dIhgWp5A  
