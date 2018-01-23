@@ -31,8 +31,8 @@ Motor : A2212 13T 950kV/1000kV/1300kV  
 -------------------------------------------
 # Video  
 Closed-loop test: https://youtu.be/z_nNao-uBho  
-Lock detection test: https://youtu.be/O4YZ754I2WM  
-EUSART speed input with foot pedal: https://youtu.be/TU5dIhgWp5A  
+Lock detection test: https://youtu.be/O4YZ754I2WM  
+EUSART speed input with foot pedal: https://youtu.be/TU5dIhgWp5A  
 
 -------------------------------------------
 # How to use  
