@@ -5,7 +5,7 @@ Sensorless brushless motor controller using PIC18F1230 (XC8)  
 * ADC  
 
 -------------------------------------------
-# Feature(Implemented)  
+# Features(Implemented)  
 * Open-loop drive.  
 * Closed-loop drive(seamless transfer from open-loop).  
 * Closed-loop lock detection(back to open-loop).  
