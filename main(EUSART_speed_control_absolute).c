@@ -261,6 +261,11 @@ void main(void) {
     BAUDCON = 0b00001000; //16-bit Baud Rate Generator
     SPBRGH = 0;
     SPBRG = 68; //Baud Rate 115200 (Formula: 115942.029)
+    /*
+     * SPBRG = 832 : Baud Rate 9600 (Formula: 9603.842)
+     * SPBRG = 138 : Baud Rate 57600 (Formula: 57553.957)
+     * SPBRG = 68; //Baud Rate 115200 (Formula: 115942.029)
+     */
 
     //start timer 0
     T0CONbits.TMR0ON = 0;
