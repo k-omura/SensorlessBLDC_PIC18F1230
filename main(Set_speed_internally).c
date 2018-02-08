@@ -20,10 +20,6 @@
  * ADC2: Supply voltage for motor drive (Vref source -> Vref+ pin)
  * ADC3: W
  * 
- * Speed input EUSART(for quadcopter control)
- * Use RX pin only.
- * Lower 2 bits: address
- * Upper 6 bits: speed data(Absolute)
  */
 
 // PIC18F1230 Configuration Bit Settings
@@ -99,7 +95,7 @@
 #define configOLInitialSpeed 200 //Open-loop initial speed
 #define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
 #define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
-#define configCLaccelerate 5 //Closed-loop acceleration
+#define configCLaccelerate 50 //Closed-loop acceleration
 //configurations end
 
 //functions
