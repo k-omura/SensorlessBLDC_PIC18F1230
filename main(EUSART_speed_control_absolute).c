@@ -442,6 +442,10 @@ char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
     prevDuty = (targetDuty > prevDuty) ? (prevDuty + 1) : (prevDuty - 1);
     setDuty(prevDuty);
 
+    if (targetDuty == prevDuty) {
+        return 1;
+    }
+    
     for (accelerateCount = 0; accelerateCount < acceleration; accelerateCount++) {
         __delay_us(1);
     }
