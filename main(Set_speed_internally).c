@@ -92,10 +92,10 @@
 
 //configurations (Set for A2212 13T 1000KV)
 #define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
-#define configOLDuty 0x28//Open-loop duty
+#define configOLDuty 0x48//Open-loop duty
 #define configOLInitialSpeed 200 //Open-loop initial speed
-#define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
-#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+#define configOpenToCloseSpeed 40 //Open to close speed (Open-loop max speed)
+#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
 #define configCLaccelerate 50 //Closed-loop acceleration
 //configurations end
 
@@ -263,10 +263,10 @@ void main(void) {
     PIE1bits.ADIE = 1;
 
     //start EUSART interrupt
-    PIE1bits.RCIE = 1;
+    //PIE1bits.RCIE = 1;
 
     //var for open-loop
-    unsigned int OLDuty, OLInitialSpeed, openToLoopSpeed, OLaccelerate;
+    unsigned int OLDuty, OLInitialSpeed, openToCloseSpeed, OLaccelerate;
     unsigned int OLSpeedCount, OLAccelerateCount;
 
     //var for closed-loop
@@ -279,8 +279,8 @@ void main(void) {
     direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
     OLDuty = configOLDuty; //Open-loop duty
     OLInitialSpeed = configOLInitialSpeed; //Open-loop initial speed
-    openToLoopSpeed = configOpenToLoopSpeed; //Open to close speed (Open-loop max speed)
-    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+    openToCloseSpeed = configOpenToCloseSpeed; //Open to close speed (Open-loop max speed)
+    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
     CLaccelerate = configCLaccelerate; //Closed-loop acceleration
     //Initial configuration end
 
@@ -309,13 +309,13 @@ void main(void) {
             setDuty(duty);
 
             duty = (duty < OLDuty) ? duty + 1 : OLDuty;
-            OLAccelerateCount = ((OLAccelerateCount - OLaccelerate) > openToLoopSpeed) ? (OLAccelerateCount - OLaccelerate) : openToLoopSpeed;
+            OLAccelerateCount = ((OLAccelerateCount - OLaccelerate) > openToCloseSpeed) ? (OLAccelerateCount - OLaccelerate) : openToCloseSpeed;
 
             //change motor position
             nextState(direction);
 
             //transition to closed-loop
-            if (OLAccelerateCount == openToLoopSpeed) {
+            if (OLAccelerateCount == openToCloseSpeed) {
                 reachO2CSpeed = 1;
             }
 
@@ -324,7 +324,7 @@ void main(void) {
             }
         } else { //Closed-loop
             chageDutySmoothly(duty, CLaccelerate);
-            CLDuty = 0x80; //test constant speed CL-drive value
+            CLDuty = 0xf0; //test constant speed CL-drive value
             duty = CLDuty;
         }
     }
