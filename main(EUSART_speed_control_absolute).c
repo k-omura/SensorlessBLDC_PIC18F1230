@@ -5,6 +5,7 @@
  * September 12, 2017: Closed-loop
  * September 13, 2017: Seamless transition Open to Closed, lock detection(CL)
  * January 1, 2018: lock detection(OL)
+ * August 1, 2018: Stop using unnecessary functions and use arrays
  * 
  * MPLAB X(XC8)
  * 
@@ -95,14 +96,13 @@
 #define configDirection 0 //rotate direction 0:CW /1:CCW /others:stop
 #define configOLDuty 0b00011011 //Open-loop duty
 #define configOLInitialSpeed 200 //Open-loop initial speed
-#define configOpenToLoopSpeed 40 //Open to close speed (Open-loop max speed)
-#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+#define configOpenToCloseSpeed 40 //Open to close speed (Open-loop max speed)
+#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
 #define configCLaccelerate 50 //Closed-loop acceleration
 //configurations end
 
 //functions
 int math_abs(int);
-void BLDCPosition(int);
 void setDuty(unsigned int);
 char chageDutySmoothly(unsigned int, unsigned int);
 void nextState(unsigned char);
@@ -137,6 +137,16 @@ const unsigned char feedBackConstant[2][6] = {
         0b00000011
     }
 };
+//PWM on/off config
+const unsigned char PWMpins[] = {
+    0b00001001,
+    0b00100001,
+    0b00100100,
+    0b00000110,
+    0b00010010,
+    0b00011000,
+    0b00000000
+};
 
 void interrupt isr() {
     static unsigned char ADCPortNum = 0; //counter for ADCPortCHS
@@ -167,7 +177,7 @@ void interrupt isr() {
             } else if (!CLEnable && reachO2CSpeed && (OLLockDetectionThreshold < OLLockDetectionCount++)) {
                 //lock detected(OL)
                 reachO2CSpeed = 0;
-                BLDCPosition(100);
+                OVDCOND = PWMpins[6];
                 setDuty(0x00);
                 CLEnable = 0;
                 CLLockDetectionCount = 0;
@@ -176,7 +186,7 @@ void interrupt isr() {
             } else if (CLEnable && (CLLockDetectionThreshold < CLLockDetectionCount++)) {
                 //lock detected(CL)
                 reachO2CSpeed = 0;
-                BLDCPosition(100);
+                OVDCOND = PWMpins[6];
                 setDuty(0x00);
                 CLEnable = 0;
                 CLLockDetectionCount = 0;
@@ -282,7 +292,7 @@ void main(void) {
     PIE1bits.RCIE = 1;
 
     //var for open-loop
-    unsigned int OLDuty, OLInitialSpeed, openToLoopSpeed, OLaccelerate;
+    unsigned int OLDuty, OLInitialSpeed, openToCloseSpeed, OLaccelerate;
     unsigned int OLSpeedCount, OLAccelerateCount;
 
     //var for closed-loop
@@ -295,8 +305,8 @@ void main(void) {
     direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
     OLDuty = configOLDuty; //Open-loop duty
     OLInitialSpeed = configOLInitialSpeed; //Open-loop initial speed
-    openToLoopSpeed = configOpenToLoopSpeed; //Open to close speed (Open-loop max speed)
-    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToLoopSpeed" acceleration
+    openToCloseSpeed = configOpenToCloseSpeed; //Open to close speed (Open-loop max speed)
+    OLaccelerate = configOLaccelerate; //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
     CLaccelerate = configCLaccelerate; //Closed-loop acceleration
     //Initial configuration end
 
@@ -326,13 +336,13 @@ void main(void) {
             setDuty(duty);
 
             duty = (duty < OLDuty) ? duty + 1 : OLDuty;
-            OLAccelerateCount = ((OLAccelerateCount - OLaccelerate) > openToLoopSpeed) ? (OLAccelerateCount - OLaccelerate) : openToLoopSpeed;
+            OLAccelerateCount = ((OLAccelerateCount - OLaccelerate) > openToCloseSpeed) ? (OLAccelerateCount - OLaccelerate) : openToCloseSpeed;
 
             //change motor position
             nextState(direction);
 
             //transition to closed-loop
-            if (OLAccelerateCount == openToLoopSpeed) {
+            if (OLAccelerateCount == openToCloseSpeed) {
                 reachO2CSpeed = 1;
             }
 
@@ -353,7 +363,7 @@ void main(void) {
             } else {
                 //EUSART input 0
                 reachO2CSpeed = 0;
-                BLDCPosition(100);
+                OVDCOND = PWMpins[6];
                 setDuty(0x00);
                 CLEnable = 0;
                 CLDuty = 0;
@@ -370,36 +380,6 @@ void main(void) {
 
 int math_abs(int value) {
     return (value >= 0) ? value : -value;
-}
-
-//PWM on/off setting
-
-void BLDCPosition(const int state) {
-    switch (state) {
-        case 0:
-            OVDCOND = 0b00001001;
-            break;
-        case 1:
-            OVDCOND = 0b00100001;
-            break;
-        case 2:
-            OVDCOND = 0b00100100;
-            break;
-        case 3:
-            OVDCOND = 0b00000110;
-            break;
-        case 4:
-            OVDCOND = 0b00010010;
-            break;
-        case 5:
-            OVDCOND = 0b00011000;
-            break;
-        default:
-            OVDCOND = 0b00000000;
-            break;
-    }
-
-    return;
 }
 
 //PWM duty ratio = Current supply to motor = speed of motor(closed-loop))
@@ -463,12 +443,12 @@ void nextState(const unsigned char directionSet) {
     } else {
         //stop
         reachO2CSpeed = 0;
-        BLDCPosition(100);
+        OVDCOND = PWMpins[6];
         setDuty(0x00);
         CLEnable = 0;
         LockDetected = 1;
     }
-    BLDCPosition(motorPosition);
+    OVDCOND = PWMpins[motorPosition];
 
     return;
 }
