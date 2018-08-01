@@ -44,5 +44,4 @@ EUSART speed input with foot pedal: https://youtu.be/TU5dIhgWp5A  
 
 -------------------------------------------
 This is a part of the quadcopter making project.  
-Sorry for the terrible English.  
  
