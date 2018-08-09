@@ -92,10 +92,10 @@
 
 //configurations (Set for A2212 13T 1000KV)
 #define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
-#define configOLDuty 0x48//Open-loop duty
+#define configOLDuty 0x68//Open-loop duty
 #define configOLInitialSpeed 200 //Open-loop initial speed
-#define configOpenToCloseSpeed 40 //Open to close speed (Open-loop max speed)
-#define configOLaccelerate 2 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
+#define configOpenToCloseSpeed 100 //Open to close speed (Open-loop max speed)
+#define configOLaccelerate 20 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
 #define configCLaccelerate 50 //Closed-loop acceleration
 //configurations end
 
