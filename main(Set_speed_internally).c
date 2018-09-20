@@ -88,15 +88,15 @@
 #define _XTAL_FREQ 32000000
 #define motorADCThreshold 0x80 // (Vmotor / 2) Adjust the value by looking at the oscilloscope, if necessary.
 #define CLLockDetectionThreshold 1000
-#define OLLockDetectionThreshold 800
+#define OLLockDetectionThreshold 500
 
 //configurations (Set for A2212 13T 1000KV)
 #define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
-#define configOLDuty 0x68//Open-loop duty
+#define configOLDuty 0x60//Open-loop duty
 #define configOLInitialSpeed 200 //Open-loop initial speed
 #define configOpenToCloseSpeed 100 //Open to close speed (Open-loop max speed)
-#define configOLaccelerate 20 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
-#define configCLaccelerate 50 //Closed-loop acceleration
+#define configOLaccelerate 10 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
+#define configCLaccelerate 20000 //Closed-loop acceleration
 //configurations end
 
 //functions
@@ -145,7 +145,7 @@ const unsigned char PWMpins[] = {
     0b00000000
 };
 
-void interrupt isr() {
+void __interrupt() isr() {
     static unsigned char ADCPortNum = 0; //counter for ADCPortCHS
     static unsigned char ADCValue[3] = {0};
     static unsigned int CLLockDetectionCount = 0;
