@@ -92,17 +92,17 @@
 
 //configurations (Set for A2212 13T 1000KV)
 #define configDirection 0//rotate direction 0:CW /1:CCW /others:stop
-#define configOLDuty 0x60//Open-loop duty
-#define configOLInitialSpeed 200 //Open-loop initial speed
-#define configOpenToCloseSpeed 100 //Open to close speed (Open-loop max speed)
-#define configOLaccelerate 10 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration
-#define configCLaccelerate 20000 //Closed-loop acceleration
+#define configOLDuty 0x60//Open-loop duty (higher is faster)
+#define configOLInitialSpeed 200 //Open-loop initial speed (lower is faster)
+#define configOpenToCloseSpeed 100 //Open to close speed (Open-loop max speed) (lower is faster)
+#define configOLaccelerate 10 //Open-loop "OLInitialSpeed" to "openToCloseSpeed" acceleration (higher is faster)
+#define configCLaccelerate 20000 //Closed-loop acceleration (lower is faster)
 //configurations end
 
 //functions
 int math_abs(int);
-void setDuty(unsigned int);
-char chageDutySmoothly(unsigned int, unsigned int);
+void setDuty(unsigned char);
+char chageDutySmoothly(unsigned char, unsigned int);
 void nextState(unsigned char);
 
 //var
@@ -122,8 +122,7 @@ const unsigned char feedBackConstant[2][6] = {
         0b00000101,
         0b00000001,
         0b00000011,
-        0b00000010,
-                
+        0b00000010,                
     },
     {
         0b00000010,
@@ -266,14 +265,15 @@ void main(void) {
     //PIE1bits.RCIE = 1;
 
     //var for open-loop
-    unsigned int OLDuty, OLInitialSpeed, openToCloseSpeed, OLaccelerate;
-    unsigned int OLSpeedCount, OLAccelerateCount;
+    unsigned char OLDuty, OLaccelerate;
+    unsigned int OLInitialSpeed, openToCloseSpeed, OLSpeedCount, OLAccelerateCount;
 
     //var for closed-loop
-    unsigned int CLDuty, CLaccelerate, CLInitialSpeedReached;
+    unsigned char CLDuty, CLInitialSpeedReached;
+    unsigned int CLaccelerate;
 
     //var others
-    int duty;
+    unsigned char duty;
 
     //Initial configuration
     direction = configDirection; //rotate direction 0:CW /1:CCW /others:stop
@@ -340,10 +340,7 @@ int math_abs(int value) {
 
 //PWM duty ratio = Current supply to motor = speed of motor(closed-loop))
 
-void setDuty(unsigned int setDuty) {
-    if (setDuty > 0xff) {
-        setDuty = 0xff;
-    }
+void setDuty(unsigned char setDuty) {
     PDC0L = setDuty;
     PDC1L = setDuty;
     PDC2L = setDuty;
@@ -353,13 +350,9 @@ void setDuty(unsigned int setDuty) {
 
 //change PWM duty ratio smoothly. Output 1 when the target speed is reached.
 
-char chageDutySmoothly(unsigned int targetDuty, unsigned int acceleration) {
-    static unsigned int prevDuty = 0;
-    int accelerateCount;
-
-    if (targetDuty > 0xff) {
-        targetDuty = 0xff;
-    }
+char chageDutySmoothly(unsigned char targetDuty, unsigned int acceleration) {
+    static unsigned char prevDuty = 0;
+    unsigned int accelerateCount;
 
     if (targetDuty == prevDuty) {
         return 1;
